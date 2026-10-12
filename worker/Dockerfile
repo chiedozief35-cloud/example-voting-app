@@ -1,28 +1,28 @@
-# because of dotnet, we always build on amd64, and target platforms in cli
-# dotnet doesn't support QEMU for building or running. 
-# (errors common in arm/v7 32bit) https://github.com/dotnet/dotnet-docker/issues/1537
-# https://hub.docker.com/_/microsoft-dotnet
-# hadolint ignore=DL3029
-# to build for a different platform than your host, use --platform=<platform>
-# for example, if you were on Intel (amd64) and wanted to build for ARM, you would use:
-# docker buildx build --platform "linux/arm64/v8" .
+ARG DOTNET_SDK_IMAGE=mcr.microsoft.com/dotnet/sdk@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317
+ARG DOTNET_RUNTIME_IMAGE=mcr.microsoft.com/dotnet/runtime@sha256:b89586dc17781f25531909993658aa8161205ae38b8cec8847df4a8221a403d5
 
-# build compiles the program for the builder's local platform
-FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/dotnet/sdk:7.0 AS build
-ARG TARGETPLATFORM
+FROM --platform=$BUILDPLATFORM ${DOTNET_SDK_IMAGE} AS build
+
 ARG TARGETARCH
-ARG BUILDPLATFORM
-RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM"
 
 WORKDIR /source
+
 COPY *.csproj .
-RUN dotnet restore -a $TARGETARCH
+RUN dotnet restore --arch "$TARGETARCH"
 
 COPY . .
-RUN dotnet publish -c release -o /app -a $TARGETARCH --self-contained false --no-restore
+RUN dotnet publish --configuration Release \
+    --output /app \
+    --arch "$TARGETARCH" \
+    --self-contained false \
+    --no-restore
 
-# app image
-FROM mcr.microsoft.com/dotnet/runtime:7.0
+FROM ${DOTNET_RUNTIME_IMAGE} AS final
+
 WORKDIR /app
+
 COPY --from=build /app .
+
+USER app
+
 ENTRYPOINT ["dotnet", "Worker.dll"]

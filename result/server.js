@@ -1,3 +1,4 @@
+var path = require('path');
 var express = require('express'),
     async = require('async'),
     { Pool } = require('pg'),
@@ -17,8 +18,15 @@ io.on('connection', function (socket) {
   });
 });
 
+if (!process.env.POSTGRES_PASSWORD) {
+  throw new Error('POSTGRES_PASSWORD is required');
+}
+
 var pool = new Pool({
-  connectionString: 'postgres://postgres:postgres@db/postgres'
+  host: 'db',
+  user: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  database: process.env.POSTGRES_DB
 });
 
 async.retry(
@@ -64,7 +72,7 @@ function collectVotesFromResult(result) {
 }
 
 app.use(cookieParser());
-app.use(express.urlencoded());
+app.use(express.urlencoded({ extended: false }));
 app.use(express.static(__dirname + '/views'));
 
 app.get('/', function (req, res) {

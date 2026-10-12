@@ -1,0 +1,8 @@
+bin/
+obj/
+.git
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store

@@ -16,7 +16,25 @@ namespace Worker
         {
             try
             {
-                var pgsql = OpenDbConnection("Server=db;Username=postgres;Password=postgres;");
+                var dbPassword =
+    Environment.GetEnvironmentVariable("POSTGRES_PASSWORD");
+
+if (string.IsNullOrEmpty(dbPassword))
+{
+    throw new InvalidOperationException(
+        "POSTGRES_PASSWORD is required"
+    );
+}
+
+var dbConnectionString = new NpgsqlConnectionStringBuilder
+{
+    Host = "db",
+    Username = Environment.GetEnvironmentVariable("POSTGRES_USER"),
+    Password = dbPassword,
+    Database = Environment.GetEnvironmentVariable("POSTGRES_DB")
+}.ConnectionString;
+
+var pgsql = OpenDbConnection(dbConnectionString);
                 var redisConn = OpenRedisConnection("redis");
                 var redis = redisConn.GetDatabase();
 
@@ -43,15 +61,27 @@ namespace Worker
                         var vote = JsonConvert.DeserializeAnonymousType(json, definition);
                         Console.WriteLine($"Processing vote for '{vote.vote}' by '{vote.voter_id}'");
                         // Reconnect DB if down
-                        if (!pgsql.State.Equals(System.Data.ConnectionState.Open))
-                        {
-                            Console.WriteLine("Reconnecting DB");
-                            pgsql = OpenDbConnection("Server=db;Username=postgres;Password=postgres;");
-                        }
-                        else
-                        { // Normal +1 vote requested
-                            UpdateVote(pgsql, vote.voter_id, vote.vote);
-                        }
+                        // Reconnect DB if down.
+if (!pgsql.State.Equals(System.Data.ConnectionState.Open))
+{
+    Console.WriteLine("Reconnecting DB");
+
+    // Release objects associated with the old connection.
+    keepAliveCommand.Dispose();
+    pgsql.Dispose();
+
+    pgsql = OpenDbConnection(
+        dbConnectionString
+    );
+
+    // Associate the keep-alive command with the new connection.
+    keepAliveCommand = pgsql.CreateCommand();
+    keepAliveCommand.CommandText = "SELECT 1";
+}
+
+// Save the vote whether the connection was already open
+// or was reopened above.
+UpdateVote(pgsql, vote.voter_id, vote.vote);
                     }
                     else
                     {
