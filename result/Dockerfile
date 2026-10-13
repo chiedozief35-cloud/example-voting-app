@@ -2,12 +2,13 @@ FROM node@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a01797839
 
 ENV NODE_ENV=production     PORT=8080
 
-RUN apt-get update &&     apt-get install -y --no-install-recommends curl tini &&     rm -rf /var/lib/apt/lists/*
+RUN apt-get update &&     apt-get install -y --no-install-recommends curl tini perl-base &&     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/app
 
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+
+RUN npm ci --omit=dev &&     npm cache clean --force &&     rm -rf /usr/local/lib/node_modules/npm            /usr/local/bin/npm            /usr/local/bin/npx
 
 COPY . .
 
