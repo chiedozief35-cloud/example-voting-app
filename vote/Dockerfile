@@ -15,7 +15,7 @@ RUN groupadd --gid 10001 app && \
 WORKDIR /usr/local/app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && pip uninstall -y setuptools wheel
 
 FROM base AS final
 

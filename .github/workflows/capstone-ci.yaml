@@ -55,41 +55,44 @@ jobs:
               "$prefix-$service:$GITHUB_SHA"
           done
 
-      - name: Scan vote image
-        uses: aquasecurity/trivy-action@v0.36.0
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
         with:
-          scan-type: image
-          image-ref: "${{ steps.images.outputs.prefix }}-vote:${{ github.sha }}"
-          format: table
-          scanners: vuln
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
-          ignore-unfixed: false
-          exit-code: "1"
+          version: v0.70.0
 
-      - name: Scan result image
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: image
-          image-ref: "${{ steps.images.outputs.prefix }}-result:${{ github.sha }}"
-          format: table
-          scanners: vuln
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
-          ignore-unfixed: false
-          exit-code: "1"
+      - name: Report all HIGH and CRITICAL findings
+        shell: bash
+        env:
+          IMAGE_PREFIX: ${{ steps.images.outputs.prefix }}
+        run: |
+          for service in vote result worker; do
+            echo "Scanning $service: includes unfixed findings"
+            trivy image \
+              --scanners vuln \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed=false \
+              --exit-code 0 \
+              "$IMAGE_PREFIX-$service:$GITHUB_SHA"
+          done
 
-      - name: Scan worker image
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: image
-          image-ref: "${{ steps.images.outputs.prefix }}-worker:${{ github.sha }}"
-          format: table
-          scanners: vuln
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
-          ignore-unfixed: false
-          exit-code: "1"
+      - name: Block fixable HIGH and CRITICAL findings
+        shell: bash
+        env:
+          IMAGE_PREFIX: ${{ steps.images.outputs.prefix }}
+        run: |
+          failed=0
+
+          for service in vote result worker; do
+            echo "Checking fixable findings in $service"
+            trivy image \
+              --scanners vuln \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              "$IMAGE_PREFIX-$service:$GITHUB_SHA" || failed=1
+          done
+
+          exit "$failed"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
