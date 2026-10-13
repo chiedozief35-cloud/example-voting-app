@@ -1,0 +1,22 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+
+apt-get update
+apt-get install -y curl ca-certificates
+
+install -d -m 700 /etc/rancher/k3s
+
+cat > /etc/rancher/k3s/config.yaml <<'CONFIG'
+server: "https://${server_private_ip}:6443"
+token: "${cluster_token}"
+node-name: "capstone-worker"
+CONFIG
+
+curl -fsSL --retry 5 \
+  https://get.k3s.io \
+  -o /root/install-k3s.sh
+
+INSTALL_K3S_VERSION="${k3s_version}" \
+INSTALL_K3S_EXEC="agent" \
+sh /root/install-k3s.sh

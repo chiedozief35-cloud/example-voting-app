@@ -1,0 +1,36 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+
+apt-get update
+apt-get install -y curl ca-certificates
+
+install -d -m 700 /etc/rancher/k3s
+
+IMDS_TOKEN="$(curl -fsS --retry 5 \
+  -X PUT \
+  -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' \
+  http://169.254.169.254/latest/api/token)"
+
+PUBLIC_IP="$(curl -fsS --retry 5 \
+  -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" \
+  http://169.254.169.254/latest/meta-data/public-ipv4)"
+
+cat > /etc/rancher/k3s/config.yaml <<CONFIG
+token: "${cluster_token}"
+node-name: "capstone-control-plane"
+write-kubeconfig-mode: "0600"
+tls-san:
+  - "$PUBLIC_IP"
+disable:
+  - traefik
+  - servicelb
+CONFIG
+
+curl -fsSL --retry 5 \
+  https://get.k3s.io \
+  -o /root/install-k3s.sh
+
+INSTALL_K3S_VERSION="${k3s_version}" \
+INSTALL_K3S_EXEC="server" \
+sh /root/install-k3s.sh
