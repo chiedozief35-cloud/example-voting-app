@@ -1,0 +1,47 @@
+imageTag: "912aa25ba367806d7aabc2458c66b60746b0d888"
+imagePullPolicy: IfNotPresent
+
+databaseSecret: voting-db
+
+apps:
+  vote:
+    repository: ghcr.io/chiedozief35-cloud/example-voting-app-vote
+    uid: 10001
+    port: 8080
+  result:
+    repository: ghcr.io/chiedozief35-cloud/example-voting-app-result
+    uid: 1000
+    port: 8080
+  worker:
+    repository: ghcr.io/chiedozief35-cloud/example-voting-app-worker
+    uid: 1654
+
+appResources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+redis:
+  image: redis@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+
+postgres:
+  image: postgres@sha256:f7d23353e1b15400d22ebe31189f4d314b87a4c129cc400c8c2d8d4ca127bf81
+  storageClass: local-path
+  storageSize: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
