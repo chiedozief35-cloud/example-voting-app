@@ -117,3 +117,53 @@ jobs:
       - name: Remove temporary test containers and volumes
         if: always()
         run: docker compose down --volumes --remove-orphans
+
+  deploy:
+    name: Deploy voting app
+    needs: build-test-scan-push
+    if: >-
+      github.repository == 'chiedozief35-cloud/example-voting-app' &&
+      (github.ref == 'refs/heads/capstone/helm' ||
+       github.ref == 'refs/heads/main')
+    runs-on: [self-hosted, linux, x64, capstone-deploy]
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+
+    concurrency:
+      group: voting-deployment
+      cancel-in-progress: false
+
+    env:
+      KUBECONFIG: /home/ubuntu/.kube/capstone.yaml
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate Helm chart
+        run: helm lint charts/voting-app
+
+      - name: Deploy images from this commit
+        shell: bash
+        run: |
+          helm upgrade --install voting charts/voting-app \
+            --namespace voting \
+            --values charts/voting-app/values.yaml \
+            --set-string imageTag="$GITHUB_SHA" \
+            --wait \
+            --timeout 10m
+
+      - name: Show deployed release
+        run: helm list --namespace voting
+
+      - name: Show diagnostics on failure
+        if: failure()
+        run: |
+          helm history voting --namespace voting
+          kubectl get pods --namespace voting
+          kubectl get events --namespace voting \
+            --sort-by=.metadata.creationTimestamp
